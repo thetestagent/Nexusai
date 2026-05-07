@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "NEXUS Language Playground"
+version = "1.0.0"
+id = "artifacts/nexus-playground"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23099
+
+[services.development]
+run = "pnpm --filter @workspace/nexus-playground run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nexus-playground", "run", "build" ]
+publicDir = "artifacts/nexus-playground/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23099"
+BASE_PATH = "/"
