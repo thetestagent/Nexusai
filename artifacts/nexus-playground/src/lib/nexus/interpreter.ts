@@ -1,6 +1,32 @@
 import type { AstNode, Program, UnitSuffix } from "./ast";
 import { unitDimension } from "./ast";
 
+// Full dimensional unit arithmetic table
+// Encodes: left × right → result, left / right → result
+const UNIT_MULTIPLY: Record<string, Record<string, UnitSuffix>> = {
+  V:   { A: "W" },
+  A:   { V: "W", ohm: "V" },
+  ohm: { A: "V" },
+  kW:  { kW: "kW", W: "kW", MW: "MW" },
+  MW:  { MW: "MW" },
+  W:   { W: "W" },
+};
+
+const UNIT_DIVIDE: Record<string, Record<string, UnitSuffix>> = {
+  V:   { A: "ohm", ohm: "A" },
+  A:   {},
+  W:   { A: "V", V: "A" },
+  kW:  { kW: "kW" },
+};
+
+function multiplyUnits(a: UnitSuffix, b: UnitSuffix): UnitSuffix | null {
+  return UNIT_MULTIPLY[a]?.[b] ?? UNIT_MULTIPLY[b]?.[a] ?? null;
+}
+
+function divideUnits(a: UnitSuffix, b: UnitSuffix): UnitSuffix | null {
+  return UNIT_DIVIDE[a]?.[b] ?? null;
+}
+
 export type NexusValue =
   | { kind: "int"; value: number }
   | { kind: "float"; value: number }
@@ -288,18 +314,26 @@ class Interpreter {
       case "*": {
         const v = lv * rv;
         if (left.kind === "unit" && right.kind === "unit") {
-          // V * A = W (special case)
-          if ((left.unit === "V" && right.unit === "A") || (left.unit === "A" && right.unit === "V"))
-            return { kind: "unit", value: v, unit: "W" };
+          const resultUnit = multiplyUnits(left.unit, right.unit);
+          if (resultUnit) return { kind: "unit", value: v, unit: resultUnit };
+          // Same unit × scalar factor — carry the unit
           return { kind: "float", value: v };
         }
+        // scalar * unit or unit * scalar — carry the unit
         if (unitResult) return { kind: "unit", value: v, unit: unitResult };
         return left.kind === "float" || right.kind === "float" ? { kind: "float", value: v } : { kind: "int", value: v };
       }
       case "/": {
         if (rv === 0) { this.output.push({ type: "error", text: "Division by zero" }); return { kind: "null" }; }
         const v = lv / rv;
-        if (unitResult && left.kind === "unit" && right.kind !== "unit") return { kind: "unit", value: v, unit: unitResult };
+        if (left.kind === "unit" && right.kind === "unit") {
+          const resultUnit = divideUnits(left.unit, right.unit);
+          if (resultUnit) return { kind: "unit", value: v, unit: resultUnit };
+          // Same dimension — dimensionless
+          if (unitDimension(left.unit) === unitDimension(right.unit)) return { kind: "float", value: v };
+          return { kind: "float", value: v };
+        }
+        if (left.kind === "unit" && right.kind !== "unit") return { kind: "unit", value: v, unit: left.unit };
         return { kind: "float", value: v };
       }
       case "%": return { kind: "int", value: ((lv % rv) + rv) % rv };
