@@ -50,11 +50,19 @@ export interface ReactiveNode {
   value?: string;
 }
 
+export interface PredictCallRecord {
+  entity: string;
+  prediction: string;
+  scope: Record<string, string>;
+  skills: string[];
+}
+
 export interface InterpreterResult {
   output: OutputLine[];
   scope: Record<string, NexusValue>;
   reactiveGraph: ReactiveNode[];
   errors: string[];
+  predictCalls: PredictCallRecord[];
 }
 
 type Env = Map<string, NexusValue>;
@@ -87,7 +95,10 @@ class Interpreter {
   private output: OutputLine[] = [];
   private errors: string[] = [];
   private reactiveGraph: ReactiveNode[] = [];
+  private predictCalls: PredictCallRecord[] = [];
   private globalEnv: Env = new Map();
+  private currentEntity: string = "";
+  private currentSkills: string[] = [];
 
   constructor() {
     // Built-in functions
@@ -111,7 +122,7 @@ class Interpreter {
     for (const [k, v] of env) {
       if (k !== "print" && k !== "sqrt" && k !== "abs") scope[k] = v;
     }
-    return { output: this.output, scope, reactiveGraph: this.reactiveGraph, errors: this.errors };
+    return { output: this.output, scope, reactiveGraph: this.reactiveGraph, errors: this.errors, predictCalls: this.predictCalls };
   }
 
   private evalNode(node: AstNode, env: Env): NexusValue {
@@ -133,11 +144,17 @@ class Interpreter {
         env.set(node.name, entity);
         const deps = node.skills.map(s => s.name).concat(node.reactions.map((r, i) => `reaction_${i}`));
         this.reactiveGraph.push({ id: node.id, label: node.name, kind: "entity", dependencies: deps });
+        const prevEntity = this.currentEntity;
+        const prevSkills = this.currentSkills;
+        this.currentEntity = node.name;
+        this.currentSkills = node.skills.map(s => s.name);
         for (const skill of node.skills) {
           env.set(`${node.name}.${skill.name}`, { kind: "fn", params: [], body: skill.body, env: new Map(env) });
           this.reactiveGraph.push({ id: skill.id, label: `${node.name}.${skill.name}`, kind: "skill", dependencies: [] });
         }
         this.output.push({ type: "info", text: `entity ${node.name} defined [memory: ${node.memory ?? "transient"}, skills: ${node.skills.length}]` });
+        this.currentEntity = prevEntity;
+        this.currentSkills = prevSkills;
         return entity;
       }
       case "SensorDef": {
@@ -228,7 +245,20 @@ class Interpreter {
         return { kind: "null" };
       }
       case "PredictCall": {
-        this.output.push({ type: "warn", text: `predict ${node.target} → [AI prediction not yet implemented in playground]` });
+        // Capture current scope for AI context
+        const scopeSnapshot: Record<string, string> = {};
+        for (const [k, v] of env) {
+          if (!["print", "sqrt", "abs"].includes(k)) {
+            scopeSnapshot[k] = displayValue(v);
+          }
+        }
+        this.predictCalls.push({
+          entity: this.currentEntity,
+          prediction: node.target,
+          scope: scopeSnapshot,
+          skills: this.currentSkills,
+        });
+        this.output.push({ type: "warn", text: `predict ${node.target} → ⟳ queued for AI resolution…` });
         return { kind: "null" };
       }
       case "UnitLit": return { kind: "unit", value: node.value, unit: node.unit };
