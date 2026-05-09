@@ -1,21 +1,23 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import { Terminal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center font-sans">
+      <div className="w-16 h-16 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6 border border-primary/20">
+        <Terminal className="w-8 h-8" />
+      </div>
+      <h1 className="text-6xl font-bold tracking-tight text-foreground mb-4">404</h1>
+      <h2 className="text-2xl font-semibold text-foreground mb-2">Signal Not Found</h2>
+      <p className="text-muted-foreground max-w-md mb-8 leading-relaxed">
+        The route you are looking for has been disconnected from the reactive graph. It may have been moved or no longer exists.
+      </p>
+      <Link href="/">
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium px-8 h-11">
+          Return to Hub
+        </Button>
+      </Link>
     </div>
   );
 }

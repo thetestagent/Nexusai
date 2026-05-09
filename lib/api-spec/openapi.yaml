@@ -3,20 +3,22 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: NEXUS Playground API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: chats
+    description: Chat session management
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +26,147 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /chats:
+    get:
+      operationId: listChats
+      tags: [chats]
+      summary: List user chats
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Chat list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chat"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: createChat
+      tags: [chats]
+      summary: Create a new chat
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChatInput"
+      responses:
+        "201":
+          description: Created chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+        "401":
+          description: Unauthorized
+
+  /chats/{chatId}:
+    get:
+      operationId: getChat
+      tags: [chats]
+      summary: Get chat with messages
+      security: [{ clerk: [] }]
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chat with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatWithMessages"
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      operationId: deleteChat
+      tags: [chats]
+      summary: Delete a chat
+      security: [{ clerk: [] }]
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    patch:
+      operationId: updateChat
+      tags: [chats]
+      summary: Update chat title
+      security: [{ clerk: [] }]
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChatInput"
+      responses:
+        "200":
+          description: Updated chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+        "401":
+          description: Unauthorized
+
+  /chats/{chatId}/messages:
+    post:
+      operationId: addMessage
+      tags: [chats]
+      summary: Save a message to a chat
+      security: [{ clerk: [] }]
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMessageInput"
+      responses:
+        "201":
+          description: Saved message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "401":
+          description: Unauthorized
+
 components:
+  securitySchemes:
+    clerk:
+      type: http
+      scheme: bearer
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +176,107 @@ components:
       required:
         - status
 
+    Chat:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        title:
+          type: string
+        language:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - title
+        - language
+        - createdAt
+        - updatedAt
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+        chatId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - chatId
+        - role
+        - content
+        - createdAt
+
+    ChatWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        title:
+          type: string
+        language:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+      required:
+        - id
+        - userId
+        - title
+        - language
+        - createdAt
+        - updatedAt
+        - messages
+
+    CreateChatInput:
+      type: object
+      properties:
+        title:
+          type: string
+        language:
+          type: string
+      required:
+        - title
+
+    UpdateChatInput:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+
+    AddMessageInput:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+      required:
+        - role
+        - content
